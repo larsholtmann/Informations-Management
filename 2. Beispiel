@@ -1,0 +1,139 @@
+# Import aller wichtigen Pakete
+
+import pandas as pd
+from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import StandardScaler
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.metrics import classification_report, confusion_matrix, accuracy_score
+import matplotlib.pyplot as plt
+import seaborn as sns
+
+#Import des Datensatzes und Infos über Daten anzeigen (Spaltennamen, Anzahl fehlender Werte je Spalte etc.)
+df = pd.read_csv("Medicaldataset.csv")
+print(df.columns)
+print(df.shape)
+print(df.info())
+print(df.isnull().sum())
+
+
+#Definition der Prädiktoren und der Zielvariablen
+X = df[['Age', 'Gender', 'Heart rate', 'Systolic blood pressure',
+        'Diastolic blood pressure', 'Blood sugar', 'CK-MB', 'Troponin']]
+
+y = df['Result']
+
+#Trainings- und Testdaten definieren
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+
+#Prädiktoren skalieren 
+scaler = StandardScaler()
+X_train_scaled = scaler.fit_transform(X_train)
+X_test_scaled = scaler.transform(X_test)
+
+# Random Forest Modelltraining
+clf = RandomForestClassifier(random_state=42)
+clf.fit(X_train_scaled, y_train)
+
+#Vorhersage auf Trainigsdaten
+y_pred = clf.predict(X_test_scaled)
+
+#Auswertung mittels Genauigkeit, Konfusionsmatrix und Classifikation Report
+print("Accuracy:", accuracy_score(y_test, y_pred))
+print("Confusion Matrix:\n", confusion_matrix(y_test, y_pred))
+print("Classification Report:\n", classification_report(y_test, y_pred))
+
+#Darstellung der Konfusionsmatrix mittels Seaborn 
+from sklearn.metrics import confusion_matrix
+import seaborn as sns
+import matplotlib.pyplot as plt
+
+# Confusion Matrix berechnen
+cm = confusion_matrix(y_test, y_pred, labels=['negative', 'positive'])
+
+# Achsenbeschriftungen
+labels = ['Kein Herzinfarkt', 'Herzinfarkt']
+
+# Heatmap plotten
+plt.figure(figsize=(6, 5))
+sns.heatmap(cm, annot=True, fmt='d', cmap='Blues',
+            xticklabels=labels, yticklabels=labels)
+
+plt.title("Confusion Matrix")
+plt.xlabel("Vorhergesagte Klasse")
+plt.ylabel("Tatsächliche Klasse")
+plt.tight_layout()
+plt.show()
+
+
+#ROC Kurve und AUC Wert importieren
+from sklearn.metrics import roc_curve, roc_auc_score
+import matplotlib.pyplot as plt
+
+# Wahrscheinlichkeiten für die positive Klasse vorhersagen (Klasse 'positive')
+y_proba = clf.predict_proba(X_test_scaled)[:, list(clf.classes_).index('positive')]
+
+# ROC-Kurve berechnen
+fpr, tpr, thresholds = roc_curve(y_test, y_proba, pos_label='positive')
+
+# AUC-Wert berechnen
+auc_score = roc_auc_score(y_test, y_proba)
+
+# ROC-Kurve plotten
+plt.figure(figsize=(8, 6))
+plt.plot(fpr, tpr, label=f"ROC-Kurve (AUC = {auc_score:.2f})", color='darkorange')
+plt.plot([0, 1], [0, 1], 'k--', label="Zufallslinie")
+plt.xlabel("False Positive Rate")
+plt.ylabel("True Positive Rate")
+plt.title("ROC-Kurve")
+plt.legend(loc="lower right")
+plt.grid(True)
+plt.tight_layout()
+plt.show()
+
+#Wichtigkeit der Prädiktoren zeigen
+importances = clf.feature_importances_
+features = X.columns
+sns.barplot(x=importances, y=features)
+plt.title("Feature Importance")
+plt.xlabel("Bedeutung")
+plt.ylabel("Merkmal")
+plt.tight_layout()
+plt.show()
+
+#logistische Regression
+from sklearn.linear_model import LogisticRegression
+from sklearn.svm import SVC
+from sklearn.neighbors import KNeighborsClassifier
+
+models = {
+    "Logistic Regression": LogisticRegression(),
+    "Random Forest": RandomForestClassifier(),
+    "SVM": SVC(),
+    "KNN": KNeighborsClassifier()
+}
+
+for name, model in models.items():
+    model.fit(X_train_scaled, y_train)
+    acc = model.score(X_test_scaled, y_test)
+    print(f"{name}: {acc:.2f}")
+
+# Beispielwerte für einen neuen Patienten und Auswertung mit dem trainierten Modell
+# Werte: [Heart rate, Systolic BP, Diastolic BP, Blood sugar, CK-MB]
+new_patient = [[60, 1, 85, 140, 90, 160, 4.8, 0.03]]
+new_patient_df = pd.DataFrame(new_patient, columns=X.columns)
+new_patient_scaled = scaler.transform(new_patient_df)
+prediction = clf.predict(new_patient_scaled)
+prediction_proba = clf.predict_proba(new_patient_scaled)
+
+print("Vorhersage Ergebnis:", prediction[0])
+print("Wahrscheinlichkeiten:", prediction_proba[0])
+
+print("\nVorhersage für neuen Patienten:")
+print("Ergebnis:", "Herzinfarkt" if prediction[0] == 'positive' else "Kein Herzinfarkt")
+
+classes = clf.classes_
+proba = prediction_proba[0]
+#Iteration
+for cls, prob in zip(classes, proba):
+    label = "Herzinfarkt" if cls == 'positive' else "Kein Herzinfarkt"
+    print(f"Wahrscheinlichkeit - {label}: {prob:.2f}")
